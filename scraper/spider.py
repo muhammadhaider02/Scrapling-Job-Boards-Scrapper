@@ -121,6 +121,22 @@ class JobScraperSpider:
 
                 job_urls = parser.parse_listing(listing_response)
 
+                # Some parsers (e.g. Rozee) extract full job data from
+                # listing cards because individual pages are inaccessible.
+                listing_jobs = getattr(parser, "_listing_jobs", None)
+                if listing_jobs:
+                    for lj in listing_jobs:
+                        if max_jobs and len(jobs) >= max_jobs:
+                            break
+                        jobs.append(lj)
+                        print(f"      {lj['title']} at {lj['company']}")
+                    parser._listing_jobs = []
+                    if max_jobs and len(jobs) >= max_jobs:
+                        print(f"   Reached max_jobs limit ({max_jobs})")
+                        break
+                    time.sleep(self.settings.job_scraping_download_delay * 2)
+                    continue
+
                 if not job_urls:
                     print(f"   No jobs found on page {page}")
                     break  # No more results
