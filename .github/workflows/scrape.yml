@@ -2,8 +2,23 @@ name: Daily Job Scrape
 
 on:
   schedule:
-    - cron: '0 2 * * *'    # 2am UTC = 7am PKT
-  workflow_dispatch:       # manual trigger from GitHub UI
+    - cron: '0 20 * * *'   # 1am PKT — LinkedIn
+    - cron: '0 2 * * *'    # 7am PKT — Indeed
+    - cron: '0 8 * * *'    # 1pm PKT — Rozee
+    - cron: '0 14 * * *'   # 7pm PKT — Mustakbil
+  workflow_dispatch:
+    inputs:
+      boards:
+        description: 'Boards to scrape'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linkedin
+          - indeed
+          - rozee
+          - mustakbil
 
 jobs:
   scrape:
@@ -22,6 +37,15 @@ jobs:
       JOB_SCRAPING_DOWNLOAD_DELAY: ${{ secrets.JOB_SCRAPING_DOWNLOAD_DELAY }}
       JOB_STALE_AFTER_DAYS: ${{ secrets.JOB_STALE_AFTER_DAYS }}
       PERMITTED_ROLES: ${{ secrets.PERMITTED_ROLES }}
+      JOB_SCRAPING_BOARDS: >-
+        ${{
+          github.event_name == 'workflow_dispatch' && github.event.inputs.boards ||
+          github.event.schedule == '0 20 * * *' && 'linkedin' ||
+          github.event.schedule == '0 2 * * *' && 'indeed' ||
+          github.event.schedule == '0 8 * * *' && 'rozee' ||
+          github.event.schedule == '0 14 * * *' && 'mustakbil' ||
+          'all'
+        }}
 
     steps:
       - uses: actions/checkout@v4

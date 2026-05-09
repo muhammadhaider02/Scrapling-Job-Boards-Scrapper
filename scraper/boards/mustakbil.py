@@ -4,16 +4,22 @@ Mustakbil.com job parser using Scrapling.
 Mustakbil is a Pakistan-based job portal.
 """
 
+import re
 from typing import Optional, List, Any
 from core.state import JobData
 from .base import BaseJobParser
 
+_ICON_RE = re.compile(r'\b(arrow_forward|arrow_back|business|location_city|payments|access_time|work_outline|trending_up|school|event|flag|checklist|description)\b', re.IGNORECASE)
+
 
 class MustakbilParser(BaseJobParser):
     """Mustakbil.com job board parser."""
-    
+
     board_name = "mustakbil"
-    
+
+    def _strip_icons(self, text: str) -> str:
+        return _ICON_RE.sub('', text).strip()
+
     def parse_job(self, response: Any) -> Optional[JobData]:
         """
         Parse Mustakbil job posting page.
@@ -42,7 +48,7 @@ class MustakbilParser(BaseJobParser):
                 print(f"Mustakbil: No title found at {response.url}")
                 return None
             
-            title_text = self.clean_text(self._get_text(title))
+            title_text = self._strip_icons(self.clean_text(self._get_text(title)))
             
             # Extract company
             company = self._css_first(response, [
@@ -51,7 +57,7 @@ class MustakbilParser(BaseJobParser):
                 ".company-info a"
             ])
             
-            company_text = self.clean_text(self._get_text(company)) if company else "Unknown"
+            company_text = self._strip_icons(self.clean_text(self._get_text(company))) if company else "Unknown"
             
             # Extract location
             location = self._css_first(response, [
@@ -64,6 +70,7 @@ class MustakbilParser(BaseJobParser):
             
             # Extract description
             description = self._css_first(response, [
+                "section[aria-labelledby='job-description-title']",
                 ".job-description",
                 "#description",
                 ".description-content"
@@ -159,74 +166,41 @@ class MustakbilParser(BaseJobParser):
             print(f"Mustakbil parse error: {e}")
             return None
     
+    def _title_matches_query(self, title: str, query: str) -> bool:
+        if not query:
+            return True
+        title_words = set(title.lower().split())
+        return any(word in title_words for word in query.lower().split())
+
     def parse_listing(self, response: Any) -> List[str]:
-        """
-        Extract job URLs from Mustakbil search results.
-        
-        Args:
-            response: Scrapling Response from search page
-            
-        Returns:
-            List of job URLs
-        """
+        query = getattr(self, '_current_query', '')
         urls = []
-        
+
         try:
-            # Try different selectors (Scrapling css() expects single selector)
-            selectors = [
-                ".job-listing a.job-link",
-                ".job-card a",
-                "a[href*='/jobs/']"
-            ]
-            
-            links = []
-            for selector in selectors:
-                found = response.css(selector)
-                if found:
-                    links.extend(found)
-            
+            links = response.css("h3 a[href*='/jobs/job/']")
+            if not links:
+                links = response.css("a[href*='/jobs/job/']")
+
             for link in links:
-                url = link.attrib.get("href", "")
-                
-                if url and "/jobs/" in url:
-                    # Ensure full URL
-                    if not url.startswith("http"):
-                        url = f"https://www.mustakbil.com{url}"
-                    
-                    urls.append(url)
-            
+                title_text = link.text or ""
+                if self._title_matches_query(title_text, query):
+                    href = link.attrib.get("href", "")
+                    if href:
+                        if not href.startswith("http"):
+                            href = f"https://www.mustakbil.com{href}"
+                        if href not in urls:
+                            urls.append(href)
+
             print(f"Mustakbil: Found {len(urls)} job URLs")
-            
+
         except Exception as e:
             print(f"Mustakbil listing parse error: {e}")
-        
+
         return urls
     
     def build_search_url(self, query: str, location: str = "", page: int = 1) -> str:
-        """
-        Build Mustakbil job search URL.
-        
-        Args:
-            query: Search keywords
-            location: Location filter (optional)
-            page: Page number
-            
-        Returns:
-            Search URL
-        """
-        import urllib.parse
-        query_encoded = urllib.parse.quote(query)
-        
-        url = f"https://www.mustakbil.com/jobs/search?q={query_encoded}"
-        
-        if location:
-            location_encoded = urllib.parse.quote(location)
-            url += f"&location={location_encoded}"
-        
-        if page > 1:
-            url += f"&page={page}"
-        
-        return url
+        self._current_query = query
+        return "https://www.mustakbil.com/jobs/pakistan"
 
 
 def parse_mustakbil_job(response: Any) -> Optional[JobData]:

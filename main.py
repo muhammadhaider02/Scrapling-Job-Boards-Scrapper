@@ -98,7 +98,7 @@ def run_bulk_pipeline():
             raw_jobs = spider.scrape_all_boards(
                 query=role,
                 location="Pakistan",
-                boards=["indeed", "linkedin"],
+                boards=settings.job_scraping_boards,
                 max_pages_per_board=settings.job_scraping_max_pages_per_board,
                 max_jobs_per_board=settings.job_scraping_max_jobs_per_board,
             )

@@ -27,6 +27,7 @@ class Settings:
     permitted_roles: List[str]
     excel_skill_gap: str
     job_stale_after_days: int
+    job_scraping_boards: List[str]
 
 
 _settings: Settings | None = None
@@ -67,6 +68,12 @@ def _parse_permitted_roles(raw: str | None) -> List[str]:
     return [part.strip() for part in raw.split(",") if part.strip()]
 
 
+def _parse_boards(raw: str | None) -> List[str]:
+    if not raw or raw.strip().lower() == "all":
+        return ["indeed", "linkedin", "rozee", "mustakbil"]
+    return [b.strip().lower() for b in raw.split(",") if b.strip()]
+
+
 def _build_settings() -> Settings:
     load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env", override=False)
 
@@ -86,6 +93,7 @@ def _build_settings() -> Settings:
         permitted_roles=_parse_permitted_roles(os.getenv("PERMITTED_ROLES")),
         excel_skill_gap=os.getenv("EXCEL_SKILL_GAP", "data/skills_master.xlsx"),
         job_stale_after_days=_get_env_int("JOB_STALE_AFTER_DAYS", 7),
+        job_scraping_boards=_parse_boards(os.getenv("JOB_SCRAPING_BOARDS")),
     )
 
 

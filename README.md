@@ -24,6 +24,7 @@ Scrape LinkedIn, Indeed, Rozee.pk and Mustakbil for job listings in Pakistan. Cl
 - [Tech Stack](#tech-stack)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
+- [Deployment](#deployment)
 - [Environment Variables](#environment-variables)
 - [Project Structure](#project-structure)
 
@@ -51,8 +52,8 @@ A separate `digital_scout_node` in `pipeline/scout.py` handles interactive, quer
 ┌─────────────────────────────────────────────────────────┐
 │  Spider  (scraper/spider.py)                            │
 │  StealthyFetcher with Cloudflare bypass                 │
-│  One parser per board — LinkedIn, Indeed, Rozee,        │
-│  Mustakbil — each with adaptive CSS selectors           │
+│  One parser per board - LinkedIn, Indeed, Rozee,        │
+│  Mustakbil - each with adaptive CSS selectors           │
 └──────────────────────────┬──────────────────────────────┘
                            │
                            ▼
@@ -88,7 +89,7 @@ A separate `digital_scout_node` in `pipeline/scout.py` handles interactive, quer
 |:---|:---|
 | **Multi-board scraping** | LinkedIn, Indeed, Rozee.pk and Mustakbil in one run |
 | **Anti-bot bypass** | Scrapling `StealthyFetcher` with Cloudflare solver and headless/headful fallback |
-| **Role allowlist** | Only scrapes roles listed in `PERMITTED_ROLES` — rejects everything else |
+| **Role allowlist** | Only scrapes roles listed in `PERMITTED_ROLES` - rejects everything else |
 | **Redis deduplication** | SHA-256 job IDs tracked in a TTL-based Redis set; duplicates never re-processed |
 | **Description cleaning** | HTML entity decoding, whitespace normalisation, section splitting, sentence deduplication |
 | **Skill extraction** | Word-boundary regex matching against a configurable master Excel skill list |
@@ -150,6 +151,42 @@ uv run python main.py
 ```bash
 uv run python -m pytest tests/
 ```
+
+---
+
+## Deployment
+
+The scraper is deployed via **GitHub Actions** with 4 scheduled runs per day - one per platform, every 6 hours. No server required.
+
+| Time (PKT) | Board |
+|:---|:---|
+| 1:00 AM | LinkedIn |
+| 7:00 AM | Indeed |
+| 1:00 PM | Rozee |
+| 7:00 PM | Mustakbil |
+
+### Setup
+
+1. Push the repo to GitHub
+2. Go to **Settings → Secrets and variables → Actions** and add the following secrets:
+
+| Secret | Description |
+|:---|:---|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase service role key |
+| `REDIS_URL` | Upstash Redis URL (`rediss://...`) |
+| `PERMITTED_ROLES` | JSON array of roles to scrape |
+| `REDIS_MAX_RETRIES` | Number of Redis retry attempts |
+| `REDIS_JOB_QUEUE_PREFIX` | Redis key prefix for job queue |
+| `REDIS_PROCESSED_TTL` | TTL in seconds for processed job IDs |
+| `JOB_SCRAPING_MAX_PAGES_PER_BOARD` | Max listing pages to scrape per board |
+| `JOB_SCRAPING_MAX_JOBS_PER_BOARD` | Max jobs to scrape per board |
+| `JOB_SCRAPING_DOWNLOAD_DELAY` | Delay in seconds between requests |
+| `JOB_STALE_AFTER_DAYS` | Days after which scraped jobs are deleted |
+
+3. Go to **Actions → Daily Job Scrape → Run workflow** to trigger a manual run - use the dropdown to select a specific board or "all"
+
+The workflow file is at `.github/workflows/scrape.yml`.
 
 ---
 
