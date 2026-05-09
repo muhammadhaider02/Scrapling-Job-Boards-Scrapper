@@ -1,0 +1,40 @@
+name: Daily Job Scrape
+
+on:
+  schedule:
+    - cron: '0 2 * * *'    # 2am UTC = 7am PKT
+  workflow_dispatch:       # manual trigger from GitHub UI
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      REDIS_MAX_RETRIES: ${{ secrets.REDIS_MAX_RETRIES }}
+      REDIS_JOB_QUEUE_PREFIX: ${{ secrets.REDIS_JOB_QUEUE_PREFIX }}
+      REDIS_PROCESSED_TTL: ${{ secrets.REDIS_PROCESSED_TTL }}
+      JOB_SCRAPING_MAX_PAGES_PER_BOARD: ${{ secrets.JOB_SCRAPING_MAX_PAGES_PER_BOARD }}
+      JOB_SCRAPING_MAX_JOBS_PER_BOARD: ${{ secrets.JOB_SCRAPING_MAX_JOBS_PER_BOARD }}
+      JOB_SCRAPING_DOWNLOAD_DELAY: ${{ secrets.JOB_SCRAPING_DOWNLOAD_DELAY }}
+      JOB_STALE_AFTER_DAYS: ${{ secrets.JOB_STALE_AFTER_DAYS }}
+      PERMITTED_ROLES: ${{ secrets.PERMITTED_ROLES }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install Playwright browser
+        run: uv run playwright install --with-deps chromium
+
+      - name: Run scraper
+        run: uv run python main.py
